@@ -10,10 +10,21 @@ void fsta(const string &s,char str[]){
         str[i]=s[i];
     str[s.size()]='\0';
 }
+string fats(char str[]){
+    string s="";
+    for(int i=0;str[i];i++)
+        s+=str[i];
+    return s;
+}
 void fstn(const string &s,int &n){
     n=0;
     for(int i=0;i<s.size();i++)
         n=n*10+s[i]-'0';
+}
+void char_array_assign(char to[],char from[]){
+    for(int i=0;i<strlen(from);i++)
+        to[i]=from[i];
+    to[strlen(from)]='\0';
 }
 class node{
 public:
@@ -39,7 +50,7 @@ template<class T>
 class bpt{
 public:
     string s;
-    const static int M=300;
+    const static int M=100;
     bpt(const string &k):s(k){}
     class full_node{
     public:
@@ -86,6 +97,14 @@ public:
         file_info.sizeofT=sizeof(T);
         file_bpt.get_info(root,1);
     }
+    void clean(){
+        file_node.initialise(s+"1");
+        file_Arr.initialise(s+"2");
+        file_bpt.initialise(s+"3");
+        file_info.initialise(s+"4");
+        file_bpt.write_info(-1,1);
+        file_bpt.get_info(root,1);
+    }
     Arr stk[110];
 int tp;
 //if bpt doesn't have root,the first element in file_bpt is -1
@@ -103,7 +122,7 @@ int insert_to_Arr(node &x,Arr &cur){
     return i;
 }
 void insert(node &x,T &info){
-    info.pos=x.info_pos=file_info.write(info);
+    info.pos=x.info_pos=file_info.get_lst();
     file_info.update(info,info.pos);
     if(root==-1){
         full_node A;
@@ -566,6 +585,114 @@ bool find(node &x,T &o){
             break;
         for(int i=0;i<cur.size;i++)
             if(strcmp(A.a[i].index,x.index)==0){
+                flg=true;
+                file_info.read(o,A.a[i].info_pos);
+            }
+        if(cur.next!=-1)
+            file_Arr.read(cur,cur.next);
+        else
+            break;
+    }while(A.a[0].index<=x.index);
+    return flg;
+}
+bool find(node &x,char id[][31],T a[],int &len){
+    if(root==-1)
+        return false;
+    Arr cur;
+    full_node A;
+    file_Arr.read(cur,root);
+    while(!cur.is_leaf){
+        file_node.read(A,cur.arr);
+        bool flg=false;
+        for(int i=0;i<cur.size;i++)
+            if(strcmp(x.index,A.a[i].index)<=0){
+                file_Arr.read(cur,cur.son[i]);
+                flg=true;
+                break;
+            }
+        if(!flg)
+            file_Arr.read(cur,cur.son[cur.size]);
+    }
+    bool flg=false;
+    do{
+        file_node.read(A,cur.arr);
+        if(strcmp(A.a[0].index,x.index)>0)
+            break;
+        for(int i=0;i<cur.size;i++)
+            if(strcmp(A.a[i].index,x.index)==0){
+                flg=true;
+                for(int j=0;j<strlen(A.a[i].val);j++)
+                    id[len][j]=A.a[i].val[j];
+                id[len][strlen(A.a[i].val)]='\0';
+                file_info.read(a[len++],A.a[i].info_pos);
+            }
+        if(cur.next!=-1)
+            file_Arr.read(cur,cur.next);
+        else
+            break;
+    }while(A.a[0].index<=x.index);
+    return flg;
+}
+bool find(node &x,int a[],int &len){
+    if(root==-1)
+        return false;
+    Arr cur;
+    full_node A;
+    file_Arr.read(cur,root);
+    while(!cur.is_leaf){
+        file_node.read(A,cur.arr);
+        bool flg=false;
+        for(int i=0;i<cur.size;i++)
+            if(strcmp(x.index,A.a[i].index)<=0){
+                file_Arr.read(cur,cur.son[i]);
+                flg=true;
+                break;
+            }
+        if(!flg)
+            file_Arr.read(cur,cur.son[cur.size]);
+    }
+    bool flg=false;
+    do{
+        file_node.read(A,cur.arr);
+        if(strcmp(A.a[0].index,x.index)>0)
+            break;
+        for(int i=0;i<cur.size;i++)
+            if(strcmp(A.a[i].index,x.index)==0){
+                flg=true;
+                a[len++]=A.a[i].info_pos;
+            }
+        if(cur.next!=-1)
+            file_Arr.read(cur,cur.next);
+        else
+            break;
+    }while(A.a[0].index<=x.index);
+    return flg;
+}
+bool findone(node &x,T &o){
+    if(root==-1)
+        return false;
+    Arr cur;
+    full_node A;
+    file_Arr.read(cur,root);
+    while(!cur.is_leaf){
+        file_node.read(A,cur.arr);
+        bool flg=false;
+        for(int i=0;i<cur.size;i++)
+            if(strcmp(x.index,A.a[i].index)<0||(strcmp(x.index,A.a[i].index)==0&&strcmp(x.val,A.a[i].val)<0)){
+                file_Arr.read(cur,cur.son[i]);
+                flg=true;
+                break;
+            }
+        if(!flg)
+            file_Arr.read(cur,cur.son[cur.size]);
+    }
+    bool flg=false;
+    do{
+        file_node.read(A,cur.arr);
+        if(strcmp(A.a[0].index,x.index)>0||(strcmp(A.a[0].index,x.index)==0&&strcmp(A.a[0].val,x.val)>0))
+            break;
+        for(int i=0;i<cur.size;i++)
+            if(strcmp(A.a[i].index,x.index)==0&&strcmp(A.a[i].val,x.val)==0){
                 flg=true;
                 file_info.read(o,A.a[i].info_pos);
             }

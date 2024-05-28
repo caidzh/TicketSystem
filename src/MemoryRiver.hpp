@@ -29,7 +29,7 @@ public:
     link *head,*tail;
     MemoryRiver() = default;
     MemoryRiver(const string& file_name) : file_name(file_name),len(0),head(nullptr),tail(nullptr) {}
-    ~MemoryRiver(){
+    void clean(){
         link *ptr=head;
         while(ptr){
             link *nxt=ptr->nxt;
@@ -37,8 +37,12 @@ public:
             ptr=nxt;
         }
     }
+    ~MemoryRiver(){
+        clean();
+    }
     void initialise(string FN = "") {
         if (FN != "") file_name = FN;
+        clean();
         file.open(file_name, std::ios::out);
         int tmp = 0;
         for (int i = 0; i < info_len; ++i)
@@ -81,6 +85,13 @@ public:
         prv->nxt=nullptr;
         delete tail;
         tail=prv;
+    }
+    int get_lst(){
+        file.open(file_name,std::ios::in|std::ios::out);
+        file.seekp(0,std::ios::end);
+        int lst=file.tellp();
+        file.close();
+        return lst;
     }
     int write(T &t){
         len++;
