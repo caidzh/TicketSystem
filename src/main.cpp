@@ -10,7 +10,6 @@ int len;
 class seat_ticket{
 public:
     int seat[91][99];
-    int pos;
 };
 MemoryRiver<seat_ticket>seat_manager("seat");
 void get_token(string &s){
@@ -27,10 +26,10 @@ void get_token(string &s){
         token[len++]=str;
     cout<<token[0]<<" ";
 }
-bpt<account>acc("acc");
-bpt<order>ord("ord"),ref("ref");
-bpt<train>train_id("id");
-bpt<train_s>train_start("start");
+bpt<account>acc;
+bpt<order>ord,ref;
+bpt<train>train_id;
+bpt<train_s>train_start;
 //acc username-(blank)
 //ord username-(blank)
 //train_id train_id-(blank)
@@ -92,6 +91,7 @@ void login(){
             fsta(token[i+1],a.password);
     }
     if(acc.find(x,c)==false){
+        cout<<"!\n";
         call_invalid();
         return;
     }
@@ -349,7 +349,7 @@ void release_train(){
         return;
     }
     seat_ticket mp;
-    a.seat_pos=mp.pos=seat_manager.get_lst();
+    a.seat_pos=seat_manager.get_lst();
     a.is_release=true;
     train_id.file_info.update(a,a.pos);
     train_s a_s;
@@ -966,8 +966,6 @@ void init(){
     seat_manager.sizeofT=sizeof(seat_ticket);
 }
 int main(){
-    freopen("3.in","r",stdin);
-    freopen("out","w",stdout);
     std::ios::sync_with_stdio(0);
     std::cin.tie(0);
     std::cout.tie(0);
@@ -1018,5 +1016,10 @@ int main(){
     cout<<"bye\n";
     seat_manager.write_info(order_cnt,1);
     seat_manager.write_info(account_cnt,2);
+    acc.file_bpt.write_info(acc.root,1);
+    ref.file_bpt.write_info(ref.root,1);
+    ord.file_bpt.write_info(ord.root,1);
+    train_id.file_bpt.write_info(train_id.root,1);
+    train_start.file_bpt.write_info(train_start.root,1);
     return 0;
 }

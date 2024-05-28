@@ -51,6 +51,7 @@ class bpt{
 public:
     string s;
     const static int M=100;
+    bpt():s(""){}
     bpt(const string &k):s(k){}
     class full_node{
     public:
