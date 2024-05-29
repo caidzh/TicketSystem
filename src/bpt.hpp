@@ -593,7 +593,7 @@ bool find(node &x,T &o){
             file_Arr.read(cur,cur.next);
         else
             break;
-    }while(A.a[0].index<=x.index);
+    }while(strcmp(A.a[0].index,x.index)<=0);
     return flg;
 }
 bool find(node &x,char id[][31],T a[],int &len){
@@ -631,7 +631,7 @@ bool find(node &x,char id[][31],T a[],int &len){
             file_Arr.read(cur,cur.next);
         else
             break;
-    }while(A.a[0].index<=x.index);
+    }while(strcmp(A.a[0].index,x.index)<=0);
     return flg;
 }
 bool find(node &x,int a[],int &len){
@@ -666,7 +666,7 @@ bool find(node &x,int a[],int &len){
             file_Arr.read(cur,cur.next);
         else
             break;
-    }while(A.a[0].index<=x.index);
+    }while(strcmp(A.a[0].index,x.index)<=0);
     return flg;
 }
 bool findone(node &x,T &o){
@@ -701,7 +701,7 @@ bool findone(node &x,T &o){
             file_Arr.read(cur,cur.next);
         else
             break;
-    }while(A.a[0].index<=x.index);
+    }while(strcmp(A.a[0].index,x.index)<=0);
     return flg;
 }
 };
