@@ -143,6 +143,7 @@ void query_profile(){
 void modify_profile(){
     node x,y;
     account a,c,new_a;
+    int next_privilege=0;
     for(int i=2;i<len;i+=2){
         if(token[i]=="-c"){
             fsta(token[i+1],x.index);
@@ -171,10 +172,12 @@ void modify_profile(){
             fsta(token[i+1],new_a.name);
         if(token[i]=="-m")
             fsta(token[i+1],new_a.mailAddr);
-        if(token[i]=="-g")
+        if(token[i]=="-g"){
             fstn(token[i+1],new_a.privilege);
+            next_privilege=new_a.privilege;
+        }
     }
-    if((strcmp(c.username,a.username)==0||c.privilege>a.privilege)&&c.privilege>new_a.privilege){
+    if((strcmp(c.username,a.username)==0||c.privilege>a.privilege)&&c.privilege>next_privilege){
         acc.file_info.update(new_a,a.pos);
         cout<<new_a.username<<" "<<new_a.name<<" "<<new_a.mailAddr<<" "<<new_a.privilege<<"\n";
     }
@@ -353,7 +356,7 @@ void release_train(){
         call_invalid();
         return;
     }
-    seat_ticket mp[91];
+    seat_ticket mp[92];
     a.is_release=true;
     train_s a_s;
     for(int i=0;i<6;i++)
@@ -633,7 +636,7 @@ bool compare(int &best_time,int &best_cost,char best_train1[],char best_train2[]
 }
 void query_transfer(){
     node x,y;
-    start_train_num=stop_train_num=0;
+    start_train_num=0;
     bool opt=false;
     string day;
     for(int i=2;i<len;i++){
@@ -659,6 +662,8 @@ void query_transfer(){
         node z;
         char_array_assign(z.index,start_train_id[i]);
         train_id.find(z,a);
+        if(start_train[i].in==a.station_num-1)
+            continue;
         int d;
         calc(day,fats(start_train[i].starttime),d);
         if(start_train[i].in)
@@ -680,6 +685,7 @@ void query_transfer(){
             rev_calc(TT,new_day,new_inday);
             node xx;
             char_array_assign(xx.index,a.station[j]);
+            stop_train_num=0;
             train_start.find(xx,stop_train_id,stop_train,stop_train_num);
             for(int k=0;k<stop_train_num;k++){
                 if(strcmp(stop_train_id[k],start_train_id[i])==0)
@@ -702,11 +708,14 @@ void query_transfer(){
                 node zz;
                 char_array_assign(zz.index,stop_train_id[k]);
                 train_id.find(zz,b);
+                if(stop_train[k].in==b.station_num-1)
+                    continue;
                 seat_ticket mp1;
                 int D,D1;
-                string DDD,DDDi;
-                rev_calc(TTT,DDD,DDDi);
-                calc(DDD,"00:00",D);
+                int T5=TTT;
+                if(stop_train[k].in)
+                    T5-=(b.travel_time[stop_train[k].in-1]+b.stop_over_time[stop_train[k].in-1]);
+                D=T5-T5%1440;
                 calc(fats(b.sale_date[0]),"00:00",D1);
                 seat_manager.read(mp1,b.seat_pos[(D-D1)/1440]);
                 now_seat1=std::min(now_seat1,mp1.seat[stop_train[k].in]);
@@ -751,9 +760,9 @@ void query_transfer(){
                                 c1=cost1-cost;
                             }
                         }
-                        if(kk!=b.station_num-1)
-                            now_seat1=std::min(now_seat1,mp1.seat[kk]);
                     }
+                    if(kk!=b.station_num-1)
+                        now_seat1=std::min(now_seat1,mp1.seat[kk]);
                 }
             }
             if(j!=a.station_num-1)
@@ -770,10 +779,10 @@ void query_transfer(){
         node z;
         char_array_assign(z.index,x.index);
         char_array_assign(z.val,best_train_id[0]);
-        train_start.find(z,a);
+        train_start.findone(z,a);
         char_array_assign(z.index,transfer);
         char_array_assign(z.val,best_train_id[1]);
-        train_start.find(z,b);
+        train_start.findone(z,b);
         cout<<best_train_id[0]<<" "<<x.index<<" ";
         cout<<day<<" "<<a.starttime<<" -> "<<transfer<<" ";
         string new_day,new_inday;
