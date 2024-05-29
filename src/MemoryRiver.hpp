@@ -16,7 +16,7 @@ public:
     fstream file;
     string file_name;
     int sizeofT = sizeof(T);
-    const int maxlen=100;
+    int maxlen;
     int len;
     struct link{
         T val;
@@ -28,7 +28,7 @@ public:
     };
     link *head,*tail;
     MemoryRiver() = default;
-    MemoryRiver(const string& file_name) : file_name(file_name),len(0),head(nullptr),tail(nullptr) {}
+    MemoryRiver(const string& file_name,int maxlen) : file_name(file_name),len(0),head(nullptr),tail(nullptr),maxlen(maxlen) {}
     void clean(){
         link *ptr=head;
         while(ptr){
@@ -39,29 +39,27 @@ public:
     }
     ~MemoryRiver(){
         clean();
+        file.close();
     }
     void initialise(string FN = "") {
         if (FN != "") file_name = FN;
         clean();
-        file.open(file_name, std::ios::out);
+        file.open(file_name, std::ios::out|std::ios::binary);
         int tmp = 0;
         for (int i = 0; i < info_len; ++i)
             file.write(reinterpret_cast<char *>(&tmp), sizeof(int));
         file.close();
+        file.open(file_name, std::ios::in | std::ios::out | std::ios::binary);
     }
     void get_info(int &tmp, int n) {
         if (n > info_len) return;
-        file.open(file_name,std::ios::in);
         file.seekg((n-1)*sizeof(int));
         file.read(reinterpret_cast<char *>(&tmp),sizeof(int));
-        file.close();
     }
     void write_info(int tmp, int n) {
         if (n > info_len) return;
-        file.open(file_name,std::ios::in|std::ios::out);
         file.seekp((n-1)*sizeof(int));
         file.write(reinterpret_cast<char *>(&tmp),sizeof(int));
-        file.close();
     }
     void shift_to_head(link *ptr){
         if(!head)
@@ -87,17 +85,14 @@ public:
         tail=prv;
     }
     int get_lst(){
-        file.open(file_name,std::ios::in|std::ios::out);
         file.seekp(0,std::ios::end);
         int lst=file.tellp();
-        file.close();
         return lst;
     }
     int write(T &t){
         len++;
         link *ptr=new link;
         ptr->val=t;
-        file.open(file_name,std::ios::in|std::ios::out);
         file.seekp(0,std::ios::end);
         int lst=file.tellp();
         ptr->pos=lst;
@@ -105,7 +100,6 @@ public:
         if(len>maxlen)
             pop_back(),len--;
         file.write(reinterpret_cast<char *>(&t),sizeofT);
-        file.close();
         return lst;
     }
     void update(T &t, const int index){
@@ -125,10 +119,8 @@ public:
             if(len>maxlen)
                 pop_back(),len--;
         }
-        file.open(file_name,std::ios::in|std::ios::out);
         file.seekp(index);
         file.write(reinterpret_cast<char *>(&t),sizeofT);
-        file.close();
     }
     void read(T &t, const int index) {
         link *ptr=head;
@@ -143,15 +135,23 @@ public:
             len++;
             link *ptr=new link;
             ptr->pos=index;
-            file.open(file_name,std::ios::in);
             file.seekg(index);
             file.read(reinterpret_cast<char *>(&t),sizeofT);
-            file.close();
             ptr->val=t;
             shift_to_head(ptr);
             if(len>maxlen)
                 pop_back(),len--;
         }
+    }
+    bool exist(){
+        file.open(file_name, std::ios::in);
+        bool res = file.is_open();
+        file.close();
+        return res;
+    }
+    void open(string FN = ""){
+        if (FN != "") file_name = FN;
+        file.open(file_name, std::ios::in | std::ios::out | std::ios::binary);
     }
 };
 

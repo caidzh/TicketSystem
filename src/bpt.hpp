@@ -46,13 +46,12 @@ public:
     }
 };
 
-template<class T>
+template<class T,int M>
 class bpt{
 public:
     string s;
-    const static int M=100;
-    bpt():s(""){}
-    bpt(const string &k):s(k){}
+    int M1,M2,M3;
+    bpt(int M1,int M2,int M3):s(""),M1(M1),M2(M2),M3(M3){}
     class full_node{
     public:
         node a[M+1];
@@ -78,20 +77,27 @@ public:
     MemoryRiver<int>file_bpt;
     int root;
     void initialise(string s){
+        file_node.maxlen=M1;
+        file_Arr.maxlen=M2;
+        file_info.maxlen=M3;
+        file_bpt.maxlen=100;
         file_node.file_name=s+"1";
         file_Arr.file_name=s+"2";
         file_bpt.file_name=s+"3";
         file_info.file_name=s+"4";
-        file_bpt.file.open(s+"3",std::ios::in|std::ios::out|std::ios::binary);
-        if(!file_bpt.file.good()){
+        if(!file_bpt.exist()){
             file_node.initialise(s+"1");
             file_Arr.initialise(s+"2");
             file_bpt.initialise(s+"3");
             file_info.initialise(s+"4");
             file_bpt.write_info(-1,1);
         }
-        else
-            file_bpt.file.close();
+        else{
+            file_node.open();
+            file_Arr.open();
+            file_bpt.open();
+            file_info.open();
+        }
         file_node.sizeofT=sizeof(full_node);
         file_Arr.sizeofT=sizeof(Arr);
         file_bpt.sizeofT=sizeof(int);

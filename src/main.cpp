@@ -11,7 +11,7 @@ class seat_ticket{
 public:
     int seat[99];
 };
-MemoryRiver<seat_ticket>seat_manager("seat");
+MemoryRiver<seat_ticket>seat_manager("seat",100);
 void get_token(string &s){
     string str="";
     len=0;
@@ -26,10 +26,10 @@ void get_token(string &s){
         token[len++]=str;
     cout<<token[0]<<" ";
 }
-bpt<account>acc;
-bpt<order>ord,ref;
-bpt<train>train_id;
-bpt<train_s>train_start;
+bpt<account,34>acc(100,100,100);
+bpt<order,25>ord(100,100,100),ref(100,100,100);
+bpt<train,4>train_id(100,100,100);
+bpt<train_s,106>train_start(100,100,100);
 //acc username-(blank)
 //ord username-(blank)
 //train_id train_id-(blank)
@@ -846,6 +846,10 @@ void buy_ticket(){
         call_invalid();
         return;
     }
+    if(a.num>b.seat_num){
+        call_invalid();
+        return;
+    }
     a.from_in=a.to_in=-1;
     for(int i=0;i<b.station_num;i++){
         if(strcmp(b.station[i],a.from)==0)
@@ -1034,12 +1038,10 @@ void clean(){
     seat_manager.initialise("seat");
 }
 void init(){
-    seat_manager.file.open("seat",std::ios::in|std::ios::out|std::ios::binary);
-    if(!seat_manager.file.good())
+    if(!seat_manager.exist())
         seat_manager.initialise("seat");
     else
-        seat_manager.file.close();
-    seat_manager.sizeofT=sizeof(seat_ticket);
+        seat_manager.open();
 }
 int main(){
     std::ios::sync_with_stdio(0);
@@ -1053,8 +1055,6 @@ int main(){
     init();
     seat_manager.get_info(order_cnt,1);
     seat_manager.get_info(account_cnt,2);
-    // if(order_cnt)
-    //     F=1;
     getline(cin,s);
     get_token(s);
     while(token[1]!="exit"){
