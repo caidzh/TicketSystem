@@ -3,8 +3,8 @@
 
 class train{
 public:
-    char train_id[21],station[100][31],sale_date[2][6],starttime[6],type;
-    int station_num,seat_num,price[100],travel_time[100],stop_over_time[100],pos,seat_pos[92];
+    char train_id[21],station[30][31],sale_date[2][6],starttime[6],type;
+    int station_num,seat_num,price[30],travel_time[30],stop_over_time[30],pos,seat_pos[92];
     bool is_release;
     train(){
         is_release=false;

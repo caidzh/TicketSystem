@@ -9,7 +9,7 @@ string token[30];
 int len;
 class seat_ticket{
 public:
-    int seat[99];
+    int seat[30];
 };
 MemoryRiver<seat_ticket>seat_manager("seat",100);
 void get_token(string &s){
