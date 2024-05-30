@@ -1,6 +1,30 @@
 #include "bpt.hpp"
 #include "account.h"
-#include "train.h"
+#include <chrono>
+class Timer {
+  private:
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
+    long totduration;
+    const char *name;
+  public:
+    Timer(const char *s) : name(s), totduration(0) {}
+    void start() {
+        start_time = std::chrono::system_clock::now();
+    }
+
+    void stop() {
+        auto end_time = std::chrono::system_clock::now();
+        totduration += std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+    }
+
+    double duration() {
+        return (double)totduration * std::chrono::nanoseconds::period::num / std::chrono::nanoseconds::period::den;
+    }
+
+    ~Timer() {
+        fprintf(stderr, "%s took %.6lf seconds\n", name, duration());
+    }
+};
 using std::cin;
 using std::cout;
 string s;
@@ -11,7 +35,15 @@ class seat_ticket{
 public:
     int seat[30];
 };
-MemoryRiver<seat_ticket>seat_manager("seat",100);
+const int maxlen=2500;
+class train_set{
+public:
+    train t[maxlen];
+};
+train_set tset;
+int train_cnt;
+MemoryRiver<seat_ticket>seat_manager("seat",1);
+MemoryRiver<train_set>train_manager("train",1);
 void get_token(string &s){
     string str="";
     len=0;
@@ -26,10 +58,10 @@ void get_token(string &s){
         token[len++]=str;
     cout<<token[0]<<" ";
 }
-bpt<account,34>acc(100,100,100);
-bpt<order,25>ord(100,100,100),ref(100,100,100);
-bpt<train,4>train_id(100,100,100);
-bpt<train_s,106>train_start(100,100,100);
+bpt<account,95>acc(100,100,100);
+bpt<order,95>ord(100,100,100),ref(100,100,100);
+bpt<train,95>train_id(100,100,100);
+bpt_s<59>train_start(100,100);
 //acc username-(blank)
 //ord username-(blank)
 //train_id train_id-(blank)
@@ -50,7 +82,7 @@ void add_user(){
             if(account_cnt==0)
                 continue;
             fsta(token[i+1],c.username);
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]);
             if(acc.find(x,c)==false&&account_cnt!=0){
                 call_invalid();
                 return;
@@ -58,7 +90,7 @@ void add_user(){
         }
         if(token[i]=="-u"){
             fsta(token[i+1],a.username);
-            fsta(token[i+1],y.index);
+            y.index=hash(token[i+1]);
         }
         if(token[i]=="-p")
             fsta(token[i+1],a.password);
@@ -86,7 +118,7 @@ void login(){
     account a,c;
     for(int i=2;i<len;i+=2){
         if(token[i]=="-u")
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]);
         if(token[i]=="-p")
             fsta(token[i+1],a.password);
     }
@@ -104,7 +136,7 @@ void login(){
 void logout(){
     node x;
     account a;
-    fsta(token[3],x.index);
+    x.index=hash(token[3]);
     if(acc.find(x,a)==false){
         call_invalid();
         return;
@@ -121,14 +153,14 @@ void query_profile(){
     account a,c;
     for(int i=2;i<len;i+=2){
         if(token[i]=="-c"){
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]);
             if(acc.find(x,c)==false){
                 call_invalid();
                 return;
             }
         }
         if(token[i]=="-u"){
-            fsta(token[i+1],y.index);
+            y.index=hash(token[i+1]);
             if(acc.find(y,a)==false){
                 call_invalid();
                 return;
@@ -146,7 +178,7 @@ void modify_profile(){
     int next_privilege=0;
     for(int i=2;i<len;i+=2){
         if(token[i]=="-c"){
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]);
             if(acc.find(x,c)==false){
                 call_invalid();
                 return;
@@ -157,7 +189,7 @@ void modify_profile(){
             }
         }
         if(token[i]=="-u"){
-            fsta(token[i+1],y.index);
+            y.index=hash(token[i+1]);
             if(acc.find(y,a)==false){
                 call_invalid();
                 return;
@@ -240,7 +272,7 @@ void add_train(){
     for(int i=2;i<len;i+=2){
         if(token[i]=="-i"){
             fsta(token[i+1],a.train_id);
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]);
             if(train_id.find(x,b)){
                 call_invalid();
                 return;
@@ -326,13 +358,18 @@ void add_train(){
     }
     for(int i=1;i<a.station_num-2;i++)
         a.stop_over_time[i]+=a.stop_over_time[i-1];
+    a.id_cnt=train_cnt;    
     train_id.insert(x,a);
+    if(train_cnt<maxlen)
+        tset.t[train_cnt++]=a;
+    else
+        train_cnt++;
     call_valid();
 }
 void delete_train(){
     node x;
     train a;
-    fsta(token[3],x.index);
+    x.index=hash(token[3]);
     if(!train_id.find(x,a)){
         call_invalid();
         return;
@@ -347,7 +384,7 @@ void delete_train(){
 void release_train(){
     node x;
     train a;
-    fsta(token[3],x.index);
+    x.index=hash(token[3]);
     if(!train_id.find(x,a)){
         call_invalid();
         return;
@@ -373,11 +410,13 @@ void release_train(){
     a_s.stop_over_time=0;
     a_s.in=0;
     a_s.tim=0;
+    a_s.id_cnt=a.id_cnt;
+    char_array_assign(a_s.train_id,a.train_id);
     for(int i=0;i<a.station_num;i++){
-        node y;
-        char_array_assign(y.index,a.station[i]);
-        char_array_assign(y.val,a.train_id);
-        train_start.insert(y,a_s);
+        Node y;
+        y.index=hash(a.station[i]);
+        y.val=a_s;
+        train_start.insert(y);
         if(i!=a.station_num-1){
             int t;
             train_s A_s;
@@ -410,6 +449,8 @@ void release_train(){
                 A_s.tim=a_s.tim+a.travel_time[i]-(i?a.travel_time[i-1]:0)+a.stop_over_time[i]-(i?a.stop_over_time[i-1]:0);
             else
                 A_s.tim=a_s.tim+a.travel_time[i]-(i?a.travel_time[i-1]:0);
+            char_array_assign(A_s.train_id,a_s.train_id);
+            A_s.id_cnt=a_s.id_cnt;
             a_s=A_s;
         }
     }
@@ -418,6 +459,8 @@ void release_train(){
         seat_manager.write(mp[i]);
     }
     train_id.file_info.update(a,a.pos);
+    if(a.id_cnt<maxlen)
+        tset.t[a.id_cnt]=a;
     call_valid();
 }
 void query_train(){
@@ -426,7 +469,7 @@ void query_train(){
     train a;
     for(int i=2;i<len;i+=2){
         if(token[i]=="-i")
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]);
         if(token[i]=="-d")
             day=token[i+1];
     }
@@ -485,9 +528,9 @@ void query_train(){
         }
     }
 }
-char start_train_id[10010][31],stop_train_id[10010][31],satisfy_train_id[10010][31];
-train_s start_train[10010],stop_train[10010],satisfy_start_train[10010],satisfy_stop_train[10010];
-int start_train_num,stop_train_num,id[10010],seat[10010];
+char satisfy_train_id[10010][31];
+train_s start_train[10010],stop_train[10010],desti_train[100010],satisfy_start_train[10010],satisfy_stop_train[10010];
+int start_train_num,stop_train_num,desti_train_num,id[10010],seat[10010];
 void mergesort(int a[],int l,int r,bool (*cmp)(const int &x,const int &y)){
     if(l==r)
         return;
@@ -537,16 +580,18 @@ void del_ticket(train &x,int t,int l,int r,int d){
         mp.seat[i]-=d;
     seat_manager.update(mp,x.seat_pos[t]);
 }
+// Timer a_tim("a");
 void query_ticket(){
-    node x,y;
+    Node x,y;
     start_train_num=stop_train_num=0;
     bool opt=false;
     string day;
+    string start,stop;
     for(int i=2;i<len;i+=2){
         if(token[i]=="-s")
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]),start=token[i+1];
         if(token[i]=="-t")
-            fsta(token[i+1],y.index);
+            y.index=hash(token[i+1]),stop=token[i+1];
         if(token[i]=="-d")
             day=token[i+1];
         if(token[i]=="-p"){
@@ -554,11 +599,13 @@ void query_ticket(){
                 opt=true;
         }
     }
-    train_start.find(x,start_train_id,start_train,start_train_num);
-    train_start.find(y,stop_train_id,stop_train,stop_train_num);
+    // a_tim.start();
+    train_start.find(x,start_train,start_train_num);
+    train_start.find(y,stop_train,stop_train_num);
+    // a_tim.stop();
     int pl=0,pr=0,l=0;
     while(pl<start_train_num&&pr<stop_train_num){
-        if(strcmp(start_train_id[pl],stop_train_id[pr])==0){
+        if(strcmp(start_train[pl].train_id,stop_train[pr].train_id)==0){
             if(day<fats(start_train[pl].sale_date[0])||day>fats(start_train[pl].sale_date[1])||start_train[pl].in>=stop_train[pr].in){
                 pl++;
                 pr++;
@@ -566,7 +613,7 @@ void query_ticket(){
             else{
                 train b;
                 node z;
-                char_array_assign(z.index,start_train_id[pl]);
+                z.index=hash(start_train[pl].train_id);
                 train_id.find(z,b);
                 int t1,t2;
                 calc(day,start_train[pl].starttime,t1);
@@ -574,7 +621,7 @@ void query_ticket(){
                     t1-=(b.travel_time[start_train[pl].in-1]+b.stop_over_time[start_train[pl].in-1]);
                 t1=t1-t1%1440;
                 calc(fats(b.sale_date[0]),"00:00",t2);
-                char_array_assign(satisfy_train_id[l],start_train_id[pl]);
+                char_array_assign(satisfy_train_id[l],start_train[pl].train_id);
                 satisfy_start_train[l]=start_train[pl];
                 satisfy_stop_train[l]=stop_train[pr];
                 seat[l]=get_ticket(b,(t1-t2)/1440,start_train[pl].in,stop_train[pr].in);
@@ -584,7 +631,7 @@ void query_ticket(){
             }
         }
         else{
-            if(strcmp(start_train_id[pl],stop_train_id[pr])<0)
+            if(strcmp(start_train[pl].train_id,stop_train[pr].train_id)<0)
                 pl++;
             else
                 pr++;
@@ -614,7 +661,7 @@ void query_ticket(){
         });
     cout<<l<<'\n';
     for(int i=0;i<l;i++){
-        cout<<satisfy_train_id[id[i]]<<" "<<x.index<<" "<<day<<" "<<satisfy_start_train[id[i]].starttime<<" -> "<<y.index<<" ";
+        cout<<satisfy_train_id[id[i]]<<" "<<start<<" "<<day<<" "<<satisfy_start_train[id[i]].starttime<<" -> "<<stop<<" ";
         int t;
         calc(day,satisfy_start_train[id[i]].starttime,t);
         t+=satisfy_stop_train[id[i]].tim-satisfy_start_train[id[i]].tim-satisfy_stop_train[id[i]].stop_over_time;
@@ -635,15 +682,16 @@ bool compare(int &best_time,int &best_cost,char best_train1[],char best_train2[]
     return k>0;
 }
 void query_transfer(){
-    node x,y;
-    start_train_num=0;
+    Node x,y;
+    start_train_num=desti_train_num=0;
     bool opt=false;
     string day;
+    string s,t;
     for(int i=2;i<len;i++){
         if(token[i]=="-s")
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]),s=token[i+1];
         if(token[i]=="-t")
-            fsta(token[i+1],y.index);
+            y.index=hash(token[i+1]),t=token[i+1];
         if(token[i]=="-d")
             day=token[i+1];
         if(token[i]=="-p"){
@@ -651,7 +699,13 @@ void query_transfer(){
                 opt=true;
         }
     }
-    train_start.find(x,start_train_id,start_train,start_train_num);
+    train_start.find(x,start_train,start_train_num);
+    train_start.find(y,desti_train,desti_train_num);
+    // if(token[0]=="[38948]"){
+    //     cout<<start_train_num<<" "<<desti_train_num<<"\n";
+    //     cout<<start_train[0].train_id<<" "<<start_train[1].train_id<<"\n";
+    //     cout<<desti_train[0].train_id<<" "<<desti_train[1].train_id<<"\n";
+    // }
     bool can=false;
     int best_time=114514191,best_cost=114514191,seat,seat1,T1,T2,T3,c,c1;
     char best_train_id[2][31],transfer[31];
@@ -659,9 +713,13 @@ void query_transfer(){
         if(day<fats(start_train[i].sale_date[0])||day>fats(start_train[i].sale_date[1]))
             continue;
         train a;
-        node z;
-        char_array_assign(z.index,start_train_id[i]);
-        train_id.find(z,a);
+        if(start_train[i].id_cnt<maxlen)
+            a=tset.t[start_train[i].id_cnt];
+        else{
+            node z;
+            z.index=hash(start_train[i].train_id);
+            train_id.find(z,a);
+        }
         if(start_train[i].in==a.station_num-1)
             continue;
         int d;
@@ -683,88 +741,195 @@ void query_transfer(){
             cost=(a.price[j-1]-(start_train[i].in?a.price[start_train[i].in-1]:0));
             string new_day,new_inday;
             rev_calc(TT,new_day,new_inday);
-            node xx;
-            char_array_assign(xx.index,a.station[j]);
+            Node xx;
+            xx.index=hash(a.station[j]);
             stop_train_num=0;
-            train_start.find(xx,stop_train_id,stop_train,stop_train_num);
-            for(int k=0;k<stop_train_num;k++){
-                if(strcmp(stop_train_id[k],start_train_id[i])==0)
-                    continue;
-                int TTT,now_seat1=114514;
-                bool flg=0;
-                string New_day=new_day;
-                if(new_day>fats(stop_train[k].sale_date[1]))
-                    continue;
-                if(new_day==fats(stop_train[k].sale_date[1])&&new_inday>fats(stop_train[k].starttime))
-                    continue;
-                if(new_day<fats(stop_train[k].sale_date[0])){
-                    New_day=fats(stop_train[k].sale_date[0]);
-                    flg=1;
-                }
-                calc(New_day,fats(stop_train[k].starttime),TTT);
-                if(new_inday>fats(stop_train[k].starttime)&&!flg)
-                    TTT+=1440;
-                train b;
-                node zz;
-                char_array_assign(zz.index,stop_train_id[k]);
-                train_id.find(zz,b);
-                if(stop_train[k].in==b.station_num-1)
-                    continue;
-                seat_ticket mp1;
-                int D,D1;
-                int T5=TTT;
-                if(stop_train[k].in)
-                    T5-=(b.travel_time[stop_train[k].in-1]+b.stop_over_time[stop_train[k].in-1]);
-                D=T5-T5%1440;
-                calc(fats(b.sale_date[0]),"00:00",D1);
-                seat_manager.read(mp1,b.seat_pos[(D-D1)/1440]);
-                now_seat1=std::min(now_seat1,mp1.seat[stop_train[k].in]);
-                for(int kk=stop_train[k].in+1;kk<b.station_num;kk++){
-                    if(strcmp(b.station[kk],y.index)==0){
-                        int cost1=cost;
-                        can=true;
-                        int TTTT=TTT+(b.travel_time[kk-1]-(stop_train[k].in?b.travel_time[stop_train[k].in-1]:0));
-                        if(kk-stop_train[k].in>=2)
-                            TTTT+=b.stop_over_time[kk-2]-(stop_train[k].in?b.stop_over_time[stop_train[k].in-1]:0);
-                        cost1+=(b.price[kk-1]-(stop_train[k].in?b.price[stop_train[k].in-1]:0));
-                        TTTT-=T;
-                        if(opt){
-                            if(compare(best_cost,best_time,best_train_id[0],best_train_id[1],cost1,TTTT,a.train_id,b.train_id)){
-                                best_cost=cost1;
-                                best_time=TTTT;
-                                char_array_assign(best_train_id[0],a.train_id);
-                                char_array_assign(best_train_id[1],b.train_id);
-                                char_array_assign(transfer,a.station[j]);
-                                seat=now_seat;
-                                seat1=now_seat1;
-                                T1=TT;
-                                T2=TTT;
-                                T3=TTTT+T;
-                                c=cost;
-                                c1=cost1-cost;
-                            }
-                        }
-                        else{
-                            if(compare(best_time,best_cost,best_train_id[0],best_train_id[1],TTTT,cost1,a.train_id,b.train_id)){
-                                best_cost=cost1;
-                                best_time=TTTT;
-                                char_array_assign(best_train_id[0],a.train_id);
-                                char_array_assign(best_train_id[1],b.train_id);
-                                char_array_assign(transfer,a.station[j]);
-                                seat=now_seat;
-                                seat1=now_seat1;
-                                T1=TT;
-                                T2=TTT;
-                                T3=TTTT+T;
-                                c=cost;
-                                c1=cost1-cost;
-                            }
+            train_start.find(xx,stop_train,stop_train_num);
+            // if(token[0]=="[38948]"){
+            //     cout<<stop_train_num<<"\n";
+            //     for(int i=0;i<stop_train_num;i++)
+            //         cout<<stop_train[i].train_id<<" ";cout<<"\n";
+            // }
+            int pl=0,pr=0;
+            while(pl<stop_train_num&&pr<desti_train_num){
+                // cout<<pl<<" "<<pr<<"\n";
+                if(strcmp(stop_train[pl].train_id,desti_train[pr].train_id)==0){
+                    if(strcmp(stop_train[pl].train_id,start_train[i].train_id)==0){
+                        pl++;
+                        pr++;
+                        continue;
+                    }
+                    int TTT;
+                    bool flg=0;
+                    string New_day=new_day;
+                    if(new_day>fats(stop_train[pl].sale_date[1])){
+                        pl++;
+                        pr++;
+                        continue;
+                    }
+                    if(new_day==fats(stop_train[pl].sale_date[1])&&new_inday>fats(stop_train[pl].starttime)){
+                        pl++;
+                        pr++;
+                        continue;
+                    }
+                    if(new_day<fats(stop_train[pl].sale_date[0])){
+                        New_day=fats(stop_train[pl].sale_date[0]);
+                        flg=1;
+                    }
+                    calc(New_day,fats(stop_train[pl].starttime),TTT);
+                    if(new_inday>fats(stop_train[pl].starttime)&&!flg)
+                        TTT+=1440;
+                    if(stop_train[pl].in>=desti_train[pr].in){
+                        pl++;
+                        pr++;
+                        continue;
+                    }
+                    train b;
+                    if(stop_train[pl].id_cnt<maxlen)
+                        b=tset.t[stop_train[pl].id_cnt];
+                    else{
+                        node zz;
+                        zz.index=hash(stop_train[pl].train_id);
+                        train_id.find(zz,b);
+                    }
+                    seat_ticket mp1;
+                    int D,D1;
+                    int T5=TTT;
+                    if(stop_train[pl].in)
+                        T5-=(b.travel_time[stop_train[pl].in-1]+b.stop_over_time[stop_train[pl].in-1]);
+                    D=T5-T5%1440;
+                    calc(fats(b.sale_date[0]),"00:00",D1);
+                    can=true;
+                    int now_seat1=get_ticket(b,(D-D1)/1440,stop_train[pl].in,desti_train[pr].in);
+                    int cost1=cost+(b.price[desti_train[pr].in-1]-(stop_train[pl].in?b.price[stop_train[pl].in-1]:0));
+                    int TTTT=TTT+(b.travel_time[desti_train[pr].in-1]-(stop_train[pl].in?b.travel_time[stop_train[pl].in-1]:0));
+                    if(desti_train[pr].in-stop_train[pl].in>=2)
+                        TTTT+=b.stop_over_time[desti_train[pr].in-2]-(stop_train[pl].in?b.stop_over_time[stop_train[pl].in-1]:0);
+                    TTTT-=T;
+                    if(opt){
+                        if(compare(best_cost,best_time,best_train_id[0],best_train_id[1],cost1,TTTT,a.train_id,b.train_id)){
+                            best_cost=cost1;
+                            best_time=TTTT;
+                            char_array_assign(best_train_id[0],a.train_id);
+                            char_array_assign(best_train_id[1],b.train_id);
+                            char_array_assign(transfer,a.station[j]);
+                            seat=now_seat;
+                            seat1=now_seat1;
+                            T1=TT;
+                            T2=TTT;
+                            T3=TTTT+T;
+                            c=cost;
+                            c1=cost1-cost;
                         }
                     }
-                    if(kk!=b.station_num-1)
-                        now_seat1=std::min(now_seat1,mp1.seat[kk]);
+                    else{
+                        if(compare(best_time,best_cost,best_train_id[0],best_train_id[1],TTTT,cost1,a.train_id,b.train_id)){
+                            best_cost=cost1;
+                            best_time=TTTT;
+                            char_array_assign(best_train_id[0],a.train_id);
+                            char_array_assign(best_train_id[1],b.train_id);
+                            char_array_assign(transfer,a.station[j]);
+                            seat=now_seat;
+                            seat1=now_seat1;
+                            T1=TT;
+                            T2=TTT;
+                            T3=TTTT+T;
+                            c=cost;
+                            c1=cost1-cost;
+                        }
+                    }
+                    pl++;
+                    pr++;
+                }
+                else{
+                    if(strcmp(stop_train[pl].train_id,desti_train[pr].train_id)<0)
+                        pl++;
+                    else
+                        pr++;
                 }
             }
+            // for(int k=0;k<stop_train_num;k++){
+            //     if(strcmp(stop_train[k].train_id,start_train[i].train_id)==0)
+            //         continue;
+            //     int TTT,now_seat1=114514;
+            //     bool flg=0;
+            //     string New_day=new_day;
+            //     if(new_day>fats(stop_train[k].sale_date[1]))
+            //         continue;
+            //     if(new_day==fats(stop_train[k].sale_date[1])&&new_inday>fats(stop_train[k].starttime))
+            //         continue;
+            //     if(new_day<fats(stop_train[k].sale_date[0])){
+            //         New_day=fats(stop_train[k].sale_date[0]);
+            //         flg=1;
+            //     }
+            //     calc(New_day,fats(stop_train[k].starttime),TTT);
+            //     if(new_inday>fats(stop_train[k].starttime)&&!flg)
+            //         TTT+=1440;
+            //     train b;
+            //     if(stop_train[k].id_cnt<maxlen)
+            //         b=tset.t[stop_train[k].id_cnt];
+            //     else{
+            //         node zz;
+            //         zz.index=hash(stop_train[k].train_id);
+            //         train_id.find(zz,b);
+            //     }
+            //     if(stop_train[k].in==b.station_num-1)
+            //         continue;
+            //     seat_ticket mp1;
+            //     int D,D1;
+            //     int T5=TTT;
+            //     if(stop_train[k].in)
+            //         T5-=(b.travel_time[stop_train[k].in-1]+b.stop_over_time[stop_train[k].in-1]);
+            //     D=T5-T5%1440;
+            //     calc(fats(b.sale_date[0]),"00:00",D1);
+            //     seat_manager.read(mp1,b.seat_pos[(D-D1)/1440]);
+            //     now_seat1=std::min(now_seat1,mp1.seat[stop_train[k].in]);
+            //     for(int kk=stop_train[k].in+1;kk<b.station_num;kk++){
+            //         if(hash(b.station[kk])==y.index){
+            //             int cost1=cost;
+            //             can=true;
+            //             int TTTT=TTT+(b.travel_time[kk-1]-(stop_train[k].in?b.travel_time[stop_train[k].in-1]:0));
+            //             if(kk-stop_train[k].in>=2)
+            //                 TTTT+=b.stop_over_time[kk-2]-(stop_train[k].in?b.stop_over_time[stop_train[k].in-1]:0);
+            //             cost1+=(b.price[kk-1]-(stop_train[k].in?b.price[stop_train[k].in-1]:0));
+            //             TTTT-=T;
+            //             if(opt){
+            //                 if(compare(best_cost,best_time,best_train_id[0],best_train_id[1],cost1,TTTT,a.train_id,b.train_id)){
+            //                     best_cost=cost1;
+            //                     best_time=TTTT;
+            //                     char_array_assign(best_train_id[0],a.train_id);
+            //                     char_array_assign(best_train_id[1],b.train_id);
+            //                     char_array_assign(transfer,a.station[j]);
+            //                     seat=now_seat;
+            //                     seat1=now_seat1;
+            //                     T1=TT;
+            //                     T2=TTT;
+            //                     T3=TTTT+T;
+            //                     c=cost;
+            //                     c1=cost1-cost;
+            //                 }
+            //             }
+            //             else{
+            //                 if(compare(best_time,best_cost,best_train_id[0],best_train_id[1],TTTT,cost1,a.train_id,b.train_id)){
+            //                     best_cost=cost1;
+            //                     best_time=TTTT;
+            //                     char_array_assign(best_train_id[0],a.train_id);
+            //                     char_array_assign(best_train_id[1],b.train_id);
+            //                     char_array_assign(transfer,a.station[j]);
+            //                     seat=now_seat;
+            //                     seat1=now_seat1;
+            //                     T1=TT;
+            //                     T2=TTT;
+            //                     T3=TTTT+T;
+            //                     c=cost;
+            //                     c1=cost1-cost;
+            //                 }
+            //             }
+            //         }
+            //         if(kk!=b.station_num-1)
+            //             now_seat1=std::min(now_seat1,mp1.seat[kk]);
+            //     }
+            // }
             if(j!=a.station_num-1)
                 now_seat=std::min(now_seat,mp.seat[j]);
         }
@@ -776,21 +941,21 @@ void query_transfer(){
     else{
         int T;
         train_s a,b;
-        node z;
-        char_array_assign(z.index,x.index);
-        char_array_assign(z.val,best_train_id[0]);
+        Node z;
+        z.index=x.index;
+        char_array_assign(z.val.train_id,best_train_id[0]);
         train_start.findone(z,a);
-        char_array_assign(z.index,transfer);
-        char_array_assign(z.val,best_train_id[1]);
+        z.index=hash(transfer);
+        char_array_assign(z.val.train_id,best_train_id[1]);
         train_start.findone(z,b);
-        cout<<best_train_id[0]<<" "<<x.index<<" ";
+        cout<<best_train_id[0]<<" "<<s<<" ";
         cout<<day<<" "<<a.starttime<<" -> "<<transfer<<" ";
         string new_day,new_inday;
         rev_calc(T1,new_day,new_inday);
         cout<<new_day<<" "<<new_inday<<" "<<c<<" "<<seat<<'\n';
         cout<<best_train_id[1]<<" "<<transfer<<" ";
         rev_calc(T2,new_day,new_inday);
-        cout<<new_day<<" "<<new_inday<<" -> "<<y.index<<" ";
+        cout<<new_day<<" "<<new_inday<<" -> "<<t<<" ";
         rev_calc(T3,new_day,new_inday);
         cout<<new_day<<" "<<new_inday<<" "<<c1<<" "<<seat1<<'\n';
     }
@@ -805,17 +970,18 @@ void fnta(char str[],int n){
 }
 void buy_ticket(){
     order a;
-    node x,y,z;
+    node x,y;
+    Node z;
     string day;
     bool flg=false;
     a.order_id=order_cnt++;
     for(int i=2;i<len;i+=2){
         if(token[i]=="-u"){
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]);
             fsta(token[i+1],a.username);
         }
         if(token[i]=="-i"){
-            fsta(token[i+1],y.index);
+            y.index=hash(token[i+1]);
             fsta(token[i+1],a.train_id);
         }
         if(token[i]=="-d")
@@ -862,10 +1028,10 @@ void buy_ticket(){
         return;
     }
     train_s c,d;
-    char_array_assign(z.index,a.from);
-    char_array_assign(z.val,b.train_id);
+    z.index=hash(a.from);
+    char_array_assign(z.val.train_id,b.train_id);
     train_start.findone(z,c);
-    char_array_assign(z.index,a.to);
+    z.index=hash(a.to);
     train_start.findone(z,d);
     if(day<fats(c.sale_date[0])||day>fats(c.sale_date[1])){
         call_invalid();
@@ -899,10 +1065,10 @@ void buy_ticket(){
         a.status=0;
         a.price=b.price[a.to_in-1]-(a.from_in?b.price[a.from_in-1]:0);
         node u;
-        char_array_assign(u.index,x.index);
+        u.index=x.index;
         fnta(u.val,a.order_id);
         ord.insert(u,a);
-        char_array_assign(u.index,y.index);
+        u.index=y.index;
         ref.insert(u,a);
     }
     else{
@@ -911,7 +1077,7 @@ void buy_ticket(){
         cout<<1ll*a.price*a.num<<"\n";
         a.status=1;
         node u;
-        char_array_assign(u.index,x.index);
+        u.index=x.index;
         fnta(u.val,a.order_id);
         ord.insert(u,a);
     }
@@ -921,7 +1087,7 @@ int ord_cnt;
 void query_order(){
     ord_cnt=0;
     node x;
-    fsta(token[3],x.index);
+    x.index=hash(token[3]);
     account a;
     if(!acc.find(x,a)){
         call_invalid();
@@ -951,7 +1117,7 @@ void refund_ticket(){
     node x;
     for(int i=2;i<len;i+=2){
         if(token[i]=="-u")
-            fsta(token[i+1],x.index);
+            x.index=hash(token[i+1]);
         if(token[i]=="-n")
             fstn(token[i+1],N);
     }
@@ -983,7 +1149,7 @@ void refund_ticket(){
         calc(fats(b.leaving_day),fats(b.leaving_inday),t);
         train c;
         node y;
-        char_array_assign(y.index,b.train_id);
+        y.index=hash(b.train_id);
         train_id.find(y,c);
         int d1,d2;
         calc(fats(c.sale_date[0]),"00:00",d2);
@@ -991,7 +1157,7 @@ void refund_ticket(){
             t-=(c.travel_time[b.from_in-1]+c.stop_over_time[b.from_in-1]);
         d1=t-t%1440;
         del_ticket(c,(d1-d2)/1440,b.from_in,b.to_in,-b.num);
-        char_array_assign(x.index,b.train_id);
+        x.index=hash(b.train_id);
         ord_cnt=0;
         ref.find(x,ordlist,ord_cnt);
         order d;
@@ -1009,7 +1175,7 @@ void refund_ticket(){
                 fnta(x.val,d.order_id);
                 ref.del(x);
                 node z;
-                char_array_assign(z.index,d.username);
+                z.index=hash(d.username);
                 char_array_assign(z.val,x.val);
                 order e;
                 ord.findone(z,e);
@@ -1020,7 +1186,7 @@ void refund_ticket(){
     }
     else{
         b.status=2;
-        char_array_assign(x.index,b.train_id);
+        x.index=hash(b.train_id);
         fnta(x.val,b.order_id);
         ref.del(x);
         ord.file_info.update(b,b.pos);
@@ -1038,12 +1204,20 @@ void clean(){
     seat_manager.initialise("seat");
 }
 void init(){
-    if(!seat_manager.exist())
+    if(!seat_manager.exist()){
         seat_manager.initialise("seat");
-    else
+        train_manager.initialise("train");
+        train_manager.write(tset);
+    }
+    else{
         seat_manager.open();
+        train_manager.open();
+    }
 }
 int main(){
+    // Timer buy_ticket_timer("buy_ticket");
+    // Timer query_ticket_timer("query_ticket");
+    // Timer query_transfer_timer("query_transfer");
     std::ios::sync_with_stdio(0);
     std::cin.tie(0);
     std::cout.tie(0);
@@ -1055,6 +1229,8 @@ int main(){
     init();
     seat_manager.get_info(order_cnt,1);
     seat_manager.get_info(account_cnt,2);
+    train_manager.get_info(train_cnt,1);
+    train_manager.read(tset,8);
     getline(cin,s);
     get_token(s);
     while(token[1]!="exit"){
@@ -1076,12 +1252,21 @@ int main(){
             release_train();
         else if(token[1]=="query_train")
             query_train();
-        else if(token[1]=="query_ticket")
+        else if(token[1]=="query_ticket"){
+            // query_ticket_timer.start();
             query_ticket();
-        else if(token[1]=="query_transfer")
+            // query_ticket_timer.stop();
+        }
+        else if(token[1]=="query_transfer"){
+            // query_transfer_timer.start();
             query_transfer();
-        else if(token[1]=="buy_ticket")
+            // query_transfer_timer.stop();
+        }
+        else if(token[1]=="buy_ticket"){
+            // buy_ticket_timer.start();
             buy_ticket();
+            // buy_ticket_timer.stop();
+        }
         else if(token[1]=="query_order")
             query_order();
         else if(token[1]=="refund_ticket")
@@ -1094,6 +1279,8 @@ int main(){
     cout<<"bye\n";
     seat_manager.write_info(order_cnt,1);
     seat_manager.write_info(account_cnt,2);
+    train_manager.write_info(train_cnt,1);
+    train_manager.update(tset,8);
     acc.file_bpt.write_info(acc.root,1);
     ref.file_bpt.write_info(ref.root,1);
     ord.file_bpt.write_info(ord.root,1);
